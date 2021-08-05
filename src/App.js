@@ -20,53 +20,13 @@ const initialStories = [
 ];
 
 const getAsyncStories = () => 
-  new Promise((resolve) =>
-    setTimeout(
-      () => resolve({ data: { stories: initialStories } } ),
-      2000
-    )
+   new Promise((resolve) =>
+     setTimeout(
+       () => resolve({ data: { stories: initialStories } }),
+       2000
+     )
   );
-
-
-const ACTION_TYPES = Object.freeze({
-  SET_STORIES: 'SET_STORIES',
-  REMOVE_STORY: 'REMOVE_STORY',
-});
-
-const storiesReducer = (state, action) => {
-  switch (action.type) {
-    case ACTION_TYPES.SET_STORIES:
-      return action.payload;
-    case ACTION_TYPES.REMOVE_STORY: 
-      return state.filter(
-        (story) => action.payload.objectID !== story.objectID
-      );
-    default:
-      throw new Error();
-  }
-};
-
-const App = () => {
-
-  const [stories, dispatchStories] = React.useReducer(
-    storiesReducer,
-    []
-    );
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isError, setIsError] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsLoading(true);
-
-    getAsyncStories().then(result => {
-      dispatchStories({
-        type: 'SET_STORIES',
-        payload: result.data.stories,
-      });
-      setIsLoading(false);
-    })
-    .catch(() => setIsError(true));
-  }, []);
+  //new Promise((resolve, reject) => setTimeout(reject, 2000));
 
   const useSemiPersistentState = (key, initialState) => {
     const [value, setValue] = React.useState(
@@ -80,16 +40,80 @@ const App = () => {
     return [value, setValue];
   };
 
+
+const ACTION_TYPES = Object.freeze({
+  SET_STORIES: 'SET_STORIES',
+  REMOVE_STORY: 'REMOVE_STORY',
+  STORIES_FETCH_INIT: 'STORIES_FETCH_INIT',
+  STORIES_FETCH_SUCCESS: 'STORIES_FETCH_SUCCESS',
+  STORIES_FETCH_FAILURE: 'STORIES_FETCH_FAILURE',
+});
+
+const storiesReducer = (state, action) => {
+  switch (action.type) {
+    case ACTION_TYPES.STORIES_FETCH_INIT: 
+      return {
+        ...state,
+        isLoading: true,
+        isError: false,
+      };
+    case ACTION_TYPES.STORIES_FETCH_SUCCESS: 
+      return {
+        ...state,
+        isLoading: false,
+        isError: false,
+        data: action.payload,
+      };
+    case ACTION_TYPES.STORIES_FETCH_FAILURE: 
+      return {
+        ...state,
+        isLoading: false,
+        isError: true,
+      };
+    case ACTION_TYPES.REMOVE_STORY: 
+      return {
+        ...state,
+        data: state.data.filter(
+          (story) => action.payload.objectID !== story.objectID
+        ),
+      };
+    default:
+      throw new Error();
+  }
+};
+
+const App = () => {
   const [searchTerm, setSearchTerm] = useSemiPersistentState(
     'search',
     'React'
   );
 
+  const [stories, dispatchStories] = React.useReducer(
+    storiesReducer,
+    { data: [], isLoading: false, isError: false }
+  );
+  // const [isLoading, setIsLoading] = React.useState(false);
+  // const [isError, setIsError] = React.useState(false);
+
+  React.useEffect(() => {
+    dispatchStories({ type: ACTION_TYPES.STORIES_FETCH_INIT});
+
+    getAsyncStories().then(result => {
+      dispatchStories({
+        type: ACTION_TYPES.STORIES_FETCH_SUCCESS,
+        payload: result.data.stories,
+      });
+    })
+    .catch(() => 
+      dispatchStories({ type: ACTION_TYPES.STORIES_FETCH_FAILURE })
+      );
+  }, []);
+
   //const [stories, setStories] = React.useState(initialStories);
 
   const handleRemoveStory = (item) => {
     dispatchStories({
-      type: 'REMOVE_STORY',
+      type: ACTION_TYPES.REMOVE_STORY,
       payload: item,
     });
   };
@@ -98,7 +122,7 @@ const App = () => {
     setSearchTerm(event.target.value);
   };
 
-  const searchedStories = stories.filter((story) => 
+  const searchedStories = stories.data.filter((story) => 
     story.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -117,9 +141,9 @@ const App = () => {
 
         <hr />
 
-        {isError && <p>Something went wrong...</p>}
+        {stories.isError && <p>Something went wrong...</p>}
 
-        {isLoading ? (
+        {stories.isLoading ? (
           <p>Loading...</p>
         ) : (
           <List 
