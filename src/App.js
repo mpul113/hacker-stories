@@ -1,4 +1,5 @@
 import * as React from 'react';
+import axios from 'axios';
 
 
 
@@ -76,12 +77,13 @@ const App = () => {
   const handleFetchStories = React.useCallback(() => {
     dispatchStories({ type: ACTION_TYPES.STORIES_FETCH_INIT});
 
-    fetch(url)
+    axios
+    .get(url)
     .then((response) => response.json())
     .then((result) => {
       dispatchStories({
         type: ACTION_TYPES.STORIES_FETCH_SUCCESS,
-        payload: result.hits,
+        payload: result.data.hits,
       });
     })
     .catch(() => 
